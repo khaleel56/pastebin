@@ -61,10 +61,11 @@
       <% if (error) { %>
         <div class="error"><%= error %></div>
       <% } else { %>
+        <% const isEncrypted = Boolean(paste.encrypted || (paste.iv && paste.salt)); %>
         <h1>Paste</h1>
         <p><strong>ID:</strong> <%= paste.id %></p>
 
-        <% if (paste.encrypted) { %>
+        <% if (isEncrypted) { %>
           <div id="decryptPanel">
             <p>This paste is encrypted and stored safely in the database.</p>
             <p class="muted">Enter the passphrase to reveal the content. The passphrase is never stored.</p>

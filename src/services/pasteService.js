@@ -15,13 +15,14 @@ async function createPaste(content, { expiration = 'never', visibility = 'public
   const id = nanoid(8);
   const now = Date.now();
   const expiresAt = _computeExpiry(expiration);
+  const encrypted = Boolean(isSensitive || iv || salt);
 
   const query = `
     INSERT INTO pastes (id, content, created_at, expires_at, visibility, burned, encrypted, iv, salt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  const values = [id, content, now, expiresAt, visibility, false, isSensitive, iv, salt];
+  const values = [id, content, now, expiresAt, visibility, false, encrypted, iv, salt];
   await db.execute(query, values);
 
   return {
@@ -31,7 +32,7 @@ async function createPaste(content, { expiration = 'never', visibility = 'public
     expiresAt,
     visibility,
     burned: false,
-    encrypted: isSensitive,
+    encrypted,
     iv,
     salt,
   };

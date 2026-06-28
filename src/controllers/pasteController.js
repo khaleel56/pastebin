@@ -2,11 +2,12 @@ const pasteService = require('../services/pasteService');
 
 function createPaste(req, res) {
   const { content, expiration = 'never', visibility = 'public', isSensitive = false, iv = null, salt = null } = req.body;
+  const encrypted = Boolean(isSensitive || iv || salt);
 
   if (!content || typeof content !== 'string') {
     return res.status(400).json({ error: 'content is required and must be a string' });
   }
-  pasteService.createPaste(content, { expiration, visibility, isSensitive, iv, salt })
+  pasteService.createPaste(content, { expiration, visibility, isSensitive: encrypted, iv, salt })
     .then((paste) => {
       const shareUrl = `${req.protocol}://${req.get('host')}/pastes/${paste.id}`;
       res.status(201).json({
