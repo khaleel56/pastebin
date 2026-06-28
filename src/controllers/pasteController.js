@@ -33,13 +33,13 @@ function getPaste(req, res) {
       }
       res.json({
         id: paste.id,
-        content: paste.content,
         createdAt: paste.createdAt,
         expiresAt: paste.expiresAt,
         visibility: paste.visibility,
-        encrypted: paste.encrypted,
-        iv: paste.iv,
-        salt: paste.salt,
+        encrypted: Boolean(paste.encrypted),
+        content: paste.encrypted ? null : paste.content,
+        iv: paste.encrypted ? paste.iv : null,
+        salt: paste.encrypted ? paste.salt : null,
       });
     })
     .catch((error) => {
