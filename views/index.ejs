@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pastebin Clone</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f5f7fb;
+        color: #1f2937;
+      }
+      .container {
+        max-width: 900px;
+        margin: 40px auto;
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      }
+      h1 { margin-top: 0; }
+      textarea {
+        width: 100%;
+        min-height: 220px;
+        font-size: 15px;
+        padding: 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      select, button {
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        font-size: 14px;
+      }
+      button {
+        background: #2563eb;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover { background: #1d4ed8; }
+      .share-box {
+        margin-top: 20px;
+        padding: 14px;
+        border: 1px solid #bfdbfe;
+        background: #eff6ff;
+        border-radius: 8px;
+      }
+      .share-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+      }
+      input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        min-width: 240px;
+      }
+      .error {
+        color: #b91c1c;
+        margin-top: 10px;
+      }
+      .success {
+        color: #166534;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Pastebin Clone</h1>
+      <p>Create a paste, get a shareable link, and copy it with one click.</p>
+
+      <form id="pasteForm">
+        <textarea id="pasteContent" name="content" placeholder="Type your text here..." required></textarea>
+
+        <div class="controls">
+          <label>
+            Expiration
+            <select name="expiration">
+              <option value="never">Never</option>
+              <option value="1m">1 minute</option>
+              <option value="10m">10 minutes</option>
+              <option value="1d">1 day</option>
+              <option value="1w">1 week</option>
+            </select>
+          </label>
+
+          <label>
+            Visibility
+            <select name="visibility">
+              <option value="public">Public</option>
+              <option value="unlisted">Unlisted</option>
+            </select>
+          </label>
+
+          <button type="submit">Save Paste</button>
+        </div>
+      </form>
+
+      <% if (error) { %>
+        <div class="error"><%= error %></div>
+      <% } %>
+
+      <div id="statusMessage" class="success" aria-live="polite"></div>
+
+      <div class="share-box" id="shareBox" hidden>
+        <strong>Your paste is ready</strong>
+        <div class="share-row">
+          <input id="shareLink" value="" readonly />
+          <button id="copyButton" type="button" onclick="copyLink()">Copy Link</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById('pasteForm');
+      const shareBox = document.getElementById('shareBox');
+      const shareLink = document.getElementById('shareLink');
+      const statusMessage = document.getElementById('statusMessage');
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const content = document.getElementById('pasteContent').value.trim();
+        const expiration = form.elements.expiration.value;
+        const visibility = form.elements.visibility.value;
+
+        if (!content) {
+          statusMessage.textContent = 'Please type some text before saving.';
+          statusMessage.className = 'error';
+          return;
+        }
+
+        statusMessage.textContent = 'Saving paste...';
+        statusMessage.className = 'success';
+
+        try {
+          const response = await fetch('/api/pastes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, expiration, visibility })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Unable to save paste.');
+          }
+
+          shareLink.value = data.shareUrl || `${window.location.origin}${data.url}`;
+          shareBox.hidden = false;
+          form.reset();
+          statusMessage.textContent = 'Paste saved successfully.';
+          statusMessage.className = 'success';
+        } catch (error) {
+          statusMessage.textContent = error.message;
+          statusMessage.className = 'error';
+        }
+      });
+
+      function copyLink() {
+        const input = document.getElementById('shareLink');
+        const button = document.getElementById('copyButton');
+        if (!input || !button) return;
+
+        navigator.clipboard.writeText(input.value).then(() => {
+          const originalText = button.textContent;
+          button.textContent = 'Copied!';
+          setTimeout(() => {
+            button.textContent = originalText;
+          }, 1200);
+        });
+      }
+    </script>
+  </body>
+</html>

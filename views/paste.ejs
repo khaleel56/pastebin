@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paste View</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f5f7fb;
+        color: #1f2937;
+      }
+      .container {
+        max-width: 900px;
+        margin: 40px auto;
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: #f8fafc;
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+      }
+      .error {
+        color: #b91c1c;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <% if (error) { %>
+        <div class="error"><%= error %></div>
+      <% } else { %>
+        <h1>Paste</h1>
+        <p><strong>ID:</strong> <%= paste.id %></p>
+        <pre><%= paste.content %></pre>
+      <% } %>
+    </div>
+  </body>
+</html>
