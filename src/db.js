@@ -16,7 +16,10 @@ async function init() {
       created_at BIGINT NOT NULL,
       expires_at BIGINT NULL,
       visibility VARCHAR(20) NOT NULL,
-      burned BOOLEAN NOT NULL DEFAULT false
+      burned BOOLEAN NOT NULL DEFAULT false,
+      encrypted BOOLEAN NOT NULL DEFAULT false,
+      iv VARCHAR(255) NULL,
+      salt VARCHAR(255) NULL
     );
   `;
   const checkIndex = `

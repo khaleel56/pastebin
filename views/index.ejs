@@ -36,7 +36,7 @@
         margin-top: 12px;
         flex-wrap: wrap;
       }
-      select, button {
+      select, input[type="password"], button {
         padding: 10px 14px;
         border-radius: 8px;
         border: 1px solid #d1d5db;
@@ -62,11 +62,8 @@
         margin-top: 8px;
         flex-wrap: wrap;
       }
-      input {
+      input[type="password"] {
         flex: 1;
-        padding: 10px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
         min-width: 240px;
       }
       .error {
@@ -76,6 +73,22 @@
       .success {
         color: #166534;
         margin-top: 10px;
+      }
+      .hint {
+        margin-top: 8px;
+        color: #475569;
+        font-size: 14px;
+      }
+      .warning {
+        color: #b45309;
+        margin-top: 8px;
+        font-size: 14px;
+      }
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
       }
     </style>
   </head>
@@ -107,7 +120,20 @@
             </select>
           </label>
 
+          <label class="checkbox-row">
+            <input type="checkbox" id="isSensitive" name="isSensitive" />
+            Sensitive paste
+          </label>
+
           <button type="submit">Save Paste</button>
+        </div>
+
+        <input id="passphrase" type="password" name="passphrase" placeholder="Passphrase for sensitive paste" hidden />
+        <div id="sensitiveHint" class="hint" hidden>
+          Sensitive pastes are encrypted in your browser before being sent. The passphrase is not stored in the database.
+        </div>
+        <div id="sensitiveWarning" class="warning" hidden>
+          Keep the passphrase safe. Without it, the paste cannot be decrypted later.
         </div>
       </form>
 
@@ -131,6 +157,61 @@
       const shareBox = document.getElementById('shareBox');
       const shareLink = document.getElementById('shareLink');
       const statusMessage = document.getElementById('statusMessage');
+      const sensitiveToggle = document.getElementById('isSensitive');
+      const passphraseInput = document.getElementById('passphrase');
+      const sensitiveHint = document.getElementById('sensitiveHint');
+
+      function toggleSensitiveFields() {
+        const visible = sensitiveToggle.checked;
+        passphraseInput.hidden = !visible;
+        sensitiveHint.hidden = !visible;
+        document.getElementById('sensitiveWarning').hidden = !visible;
+        if (!visible) {
+          passphraseInput.value = '';
+        }
+      }
+
+      sensitiveToggle.addEventListener('change', toggleSensitiveFields);
+
+      function arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        bytes.forEach((byte) => {
+          binary += String.fromCharCode(byte);
+        });
+        return window.btoa(binary);
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binary = window.atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function encryptText(text, passphrase) {
+        const encoder = new TextEncoder();
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+
+        const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(passphrase), { name: 'PBKDF2' }, false, ['deriveKey']);
+        const key = await crypto.subtle.deriveKey(
+          { name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' },
+          keyMaterial,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt']
+        );
+
+        const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoder.encode(text));
+        return {
+          ciphertext: arrayBufferToBase64(encrypted),
+          iv: arrayBufferToBase64(iv),
+          salt: arrayBufferToBase64(salt),
+        };
+      }
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -138,9 +219,17 @@
         const content = document.getElementById('pasteContent').value.trim();
         const expiration = form.elements.expiration.value;
         const visibility = form.elements.visibility.value;
+        const isSensitive = sensitiveToggle.checked;
+        const passphrase = passphraseInput.value.trim();
 
         if (!content) {
           statusMessage.textContent = 'Please type some text before saving.';
+          statusMessage.className = 'error';
+          return;
+        }
+
+        if (isSensitive && !passphrase) {
+          statusMessage.textContent = 'Please enter a passphrase for the sensitive paste.';
           statusMessage.className = 'error';
           return;
         }
@@ -149,10 +238,21 @@
         statusMessage.className = 'success';
 
         try {
+          let payload = { content, expiration, visibility, isSensitive };
+          if (isSensitive) {
+            const encrypted = await encryptText(content, passphrase);
+            payload = {
+              ...payload,
+              content: encrypted.ciphertext,
+              iv: encrypted.iv,
+              salt: encrypted.salt,
+            };
+          }
+
           const response = await fetch('/api/pastes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, expiration, visibility })
+            body: JSON.stringify(payload)
           });
 
           const data = await response.json();
@@ -164,6 +264,7 @@
           shareLink.value = data.shareUrl || `${window.location.origin}${data.url}`;
           shareBox.hidden = false;
           form.reset();
+          toggleSensitiveFields();
           statusMessage.textContent = 'Paste saved successfully.';
           statusMessage.className = 'success';
         } catch (error) {

@@ -11,17 +11,17 @@ function _computeExpiry(expiration) {
   return null;
 }
 
-async function createPaste(content, { expiration = 'never', visibility = 'public' } = {}) {
+async function createPaste(content, { expiration = 'never', visibility = 'public', isSensitive = false, iv = null, salt = null } = {}) {
   const id = nanoid(8);
   const now = Date.now();
   const expiresAt = _computeExpiry(expiration);
 
   const query = `
-    INSERT INTO pastes (id, content, created_at, expires_at, visibility, burned)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO pastes (id, content, created_at, expires_at, visibility, burned, encrypted, iv, salt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  const values = [id, content, now, expiresAt, visibility, false];
+  const values = [id, content, now, expiresAt, visibility, false, isSensitive, iv, salt];
   await db.execute(query, values);
 
   return {
@@ -31,6 +31,9 @@ async function createPaste(content, { expiration = 'never', visibility = 'public
     expiresAt,
     visibility,
     burned: false,
+    encrypted: isSensitive,
+    iv,
+    salt,
   };
 }
 
@@ -38,7 +41,7 @@ async function getPaste(id) {
   const connection = await db.getConnection();
   try {
     const [rows] = await connection.execute(
-      'SELECT id, content, created_at AS createdAt, expires_at AS expiresAt, visibility, burned FROM pastes WHERE id = ?',
+      'SELECT id, content, created_at AS createdAt, expires_at AS expiresAt, visibility, burned, encrypted, iv, salt FROM pastes WHERE id = ?',
       [id]
     );
 

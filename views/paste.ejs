@@ -30,6 +30,30 @@
       .error {
         color: #b91c1c;
       }
+      .success {
+        color: #166534;
+      }
+      .muted {
+        color: #64748b;
+        font-size: 14px;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      input, button {
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+      }
+      button {
+        background: #2563eb;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -39,8 +63,76 @@
       <% } else { %>
         <h1>Paste</h1>
         <p><strong>ID:</strong> <%= paste.id %></p>
-        <pre><%= paste.content %></pre>
+
+        <% if (paste.encrypted) { %>
+          <div id="decryptPanel">
+            <p>This paste is encrypted and stored safely in the database.</p>
+            <p class="muted">Enter the passphrase to reveal the content. The passphrase is never stored.</p>
+            <div class="controls">
+              <input id="passphraseInput" type="password" placeholder="Passphrase" />
+              <button id="decryptButton" type="button">Decrypt</button>
+            </div>
+            <div id="decryptMessage" class="success"></div>
+            <pre id="pasteContent" style="display: none;"></pre>
+          </div>
+        <% } else { %>
+          <pre><%= paste.content %></pre>
+        <% } %>
       <% } %>
     </div>
+
+    <script>
+      window.pasteData = <%- JSON.stringify(paste) %>;
+
+      function base64ToArrayBuffer(base64) {
+        const binary = window.atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function decryptText(ciphertext, iv, salt, passphrase) {
+        const encoder = new TextEncoder();
+        const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(passphrase), { name: 'PBKDF2' }, false, ['deriveKey']);
+        const key = await crypto.subtle.deriveKey(
+          { name: 'PBKDF2', salt: base64ToArrayBuffer(salt), iterations: 250000, hash: 'SHA-256' },
+          keyMaterial,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['decrypt']
+        );
+
+        const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: base64ToArrayBuffer(iv) }, key, base64ToArrayBuffer(ciphertext));
+        return new TextDecoder().decode(decrypted);
+      }
+
+      const decryptButton = document.getElementById('decryptButton');
+      if (decryptButton) {
+        decryptButton.addEventListener('click', async () => {
+          const passphrase = document.getElementById('passphraseInput').value;
+          const message = document.getElementById('decryptMessage');
+          const output = document.getElementById('pasteContent');
+
+          if (!passphrase) {
+            message.textContent = 'Please enter the passphrase.';
+            message.className = 'error';
+            return;
+          }
+
+          try {
+            const content = await decryptText(window.pasteData.content, window.pasteData.iv, window.pasteData.salt, passphrase);
+            output.textContent = content;
+            output.style.display = 'block';
+            message.textContent = 'Decrypted successfully.';
+            message.className = 'success';
+          } catch (error) {
+            message.textContent = 'Unable to decrypt paste. Check the passphrase.';
+            message.className = 'error';
+          }
+        });
+      }
+    </script>
   </body>
 </html>
