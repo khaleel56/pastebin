@@ -5,19 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pastebin Clone</title>
     <style>
+      :root {
+        --bg: #f5f7fb;
+        --surface: #ffffff;
+        --text: #1f2937;
+        --muted: #475569;
+        --border: #d1d5db;
+        --input-bg: #ffffff;
+        --share-bg: #eff6ff;
+        --share-border: #bfdbfe;
+        --button-bg: #2563eb;
+        --button-hover: #1d4ed8;
+        --button-text: #ffffff;
+        --shadow: 0 10px 30px rgba(0,0,0,0.08);
+        --error: #b91c1c;
+        --success: #166534;
+        --warning: #b45309;
+      }
+
+      body[data-theme="dark"] {
+        --bg: #06070a;
+        --surface: #111827;
+        --text: #f9fafb;
+        --muted: #cbd5e1;
+        --border: #374151;
+        --input-bg: #0f172a;
+        --share-bg: #111827;
+        --share-border: #334155;
+        --button-bg: #3b82f6;
+        --button-hover: #60a5fa;
+        --button-text: #ffffff;
+        --shadow: 0 12px 32px rgba(0,0,0,0.4);
+        --error: #fca5a5;
+        --success: #86efac;
+        --warning: #fde68a;
+      }
+
       body {
         font-family: Arial, sans-serif;
         margin: 0;
-        background: #f5f7fb;
-        color: #1f2937;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        transition: background 0.2s ease, color 0.2s ease;
       }
       .container {
         max-width: 900px;
         margin: 40px auto;
-        background: white;
+        background: var(--surface);
         padding: 24px;
         border-radius: 12px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+      }
+      .top-bar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 12px;
       }
       h1 { margin-top: 0; }
       textarea {
@@ -25,10 +69,16 @@
         min-height: 220px;
         font-size: 15px;
         padding: 12px;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--border);
         border-radius: 8px;
         resize: vertical;
         box-sizing: border-box;
+        background: var(--input-bg);
+        color: var(--text);
+      }
+      textarea::placeholder,
+      input::placeholder {
+        color: var(--muted);
       }
       .controls {
         display: flex;
@@ -36,24 +86,33 @@
         margin-top: 12px;
         flex-wrap: wrap;
       }
-      select, input[type="password"], button {
+      select, input[type="password"], input[type="text"], button {
         padding: 10px 14px;
         border-radius: 8px;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--border);
         font-size: 14px;
       }
+      select, input[type="password"], input[type="text"] {
+        background: var(--input-bg);
+        color: var(--text);
+      }
       button {
-        background: #2563eb;
-        color: white;
+        background: var(--button-bg);
+        color: var(--button-text);
         border: none;
         cursor: pointer;
       }
-      button:hover { background: #1d4ed8; }
+      button:hover { background: var(--button-hover); }
+      .theme-toggle {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
       .share-box {
         margin-top: 20px;
         padding: 14px;
-        border: 1px solid #bfdbfe;
-        background: #eff6ff;
+        border: 1px solid var(--share-border);
+        background: var(--share-bg);
         border-radius: 8px;
       }
       .share-row {
@@ -67,20 +126,20 @@
         min-width: 240px;
       }
       .error {
-        color: #b91c1c;
+        color: var(--error);
         margin-top: 10px;
       }
       .success {
-        color: #166534;
+        color: var(--success);
         margin-top: 10px;
       }
       .hint {
         margin-top: 8px;
-        color: #475569;
+        color: var(--muted);
         font-size: 14px;
       }
       .warning {
-        color: #b45309;
+        color: var(--warning);
         margin-top: 8px;
         font-size: 14px;
       }
@@ -94,6 +153,9 @@
   </head>
   <body>
     <div class="container">
+      <div class="top-bar">
+        <button id="themeToggle" class="theme-toggle" type="button">🌙 Night mode</button>
+      </div>
       <h1>Pastebin Clone</h1>
       <p>Create a paste, get a shareable link, and copy it with one click.</p>
 
@@ -155,11 +217,27 @@
     <script>
       const form = document.getElementById('pasteForm');
       const shareBox = document.getElementById('shareBox');
+      const themeToggle = document.getElementById('themeToggle');
       const shareLink = document.getElementById('shareLink');
       const statusMessage = document.getElementById('statusMessage');
       const sensitiveToggle = document.getElementById('isSensitive');
       const passphraseInput = document.getElementById('passphrase');
       const sensitiveHint = document.getElementById('sensitiveHint');
+
+      function applyTheme(theme) {
+        document.body.dataset.theme = theme;
+        localStorage.setItem('pasteTheme', theme);
+        themeToggle.textContent = theme === 'dark' ? '☀️ Day mode' : '🌙 Night mode';
+        themeToggle.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+      }
+
+      const savedTheme = localStorage.getItem('pasteTheme');
+      applyTheme(savedTheme === 'dark' ? 'dark' : 'light');
+
+      themeToggle.addEventListener('click', () => {
+        const nextTheme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+        applyTheme(nextTheme);
+      });
 
       function toggleSensitiveFields() {
         const visible = sensitiveToggle.checked;
